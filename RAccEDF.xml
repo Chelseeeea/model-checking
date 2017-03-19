@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.1//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_2.dtd'>
+<nta>
+	<declaration>// Place global declarations here.
+const int N=4;///total number of tasks.
+typedef int [0, N-1] t_id;
+///arrays to hold the attributes of the tasks
+const double Uti=0.1;
+clock gTime;
+
+double period[N];
+double wcec[N];///worst case execution cycels*/
+/////const double ILF=0.25;
+double bcec[N];///best case execution cycels
+double lastEc[N];
+bool error=false;
+bool trerror=false;
+////int switches;
+
+///chanels for scheduling
+broadcast chan release[N];
+urgent broadcast chan run[N];
+urgent broadcast chan preempt[N];
+urgent broadcast chan finish[N];
+urgent broadcast chan updatefre;
+urgent broadcast chan tranfault;
+urgent broadcast chan urg;
+clock time[N];
+
+const double fee=0.37;
+const double fmax=1.0;
+double fre=fmax;
+const double Pind=0.1;
+const int Cef=1;
+
+
+
+const int MAXQUESIZE=15;///maxmium size of the processor queue;
+int[-1,N] queue[MAXQUESIZE];
+void insert(t_id tid,int[0,MAXQUESIZE-1] index){
+    for(i:int [1,MAXQUESIZE]) if(MAXQUESIZE-i&gt;index) queue[MAXQUESIZE-i]=queue[MAXQUESIZE-i-1];
+    queue[index]=tid;
+}
+bool empty(){return queue[0]==-1;}</declaration>
+	<template>
+		<name>taskGen</name>
+		<declaration>const int PERIOD=100;
+///clock x;
+t_id tid;
+
+////double vectu[N];
+void uunifast()
+{    
+   /// Uti=u;
+    double sumu;
+    double nextu;
+    double vectu;
+    sumu=Uti;
+   for(i:int [0,N-2]){
+        nextu=sumu*pow(random(1.0),1.0/(N-i+1));
+        vectu=sumu-nextu;
+        sumu=nextu;
+        period[i]=ceil((random(5)+5)*PERIOD);
+        wcec[i]=vectu*period[i];
+        if(wcec[i]&lt;1) wcec[i]=1;
+        lastEc[i]=wcec[i];
+        ////nextDe[i]=period[i];
+    }
+    vectu=sumu;
+    period[N-1]=ceil((random(5)+5)*PERIOD);
+    wcec[N-1]=vectu*period[N-1];
+    if(wcec[N-1]&lt;1) wcec[N-1]=1;
+    lastEc[N-1]=wcec[N-1];
+   ///// nextDe[N-1]=period[N-1];
+    sumu=0;
+    nextu=0;
+}</declaration>
+		<location id="id0" x="-68" y="0">
+			<name x="-78" y="-34">Idle</name>
+		</location>
+		<location id="id1" x="-238" y="0">
+			<name x="-248" y="-34">Init</name>
+			<committed/>
+		</location>
+		<init ref="id1"/>
+		<transition>
+			<source ref="id1"/>
+			<target ref="id0"/>
+			<label kind="assignment" x="-187" y="0">uunifast()</label>
+		</transition>
+	</template>
+	<template>
+		<name>Task</name>
+		<parameter>const t_id tid</parameter>
+		<declaration>clock exec;
+////clock nexec;
+/////clock rept;
+////clock 
+double acec;
+</declaration>
+		<location id="id2" x="-272" y="0">
+			<name x="-323" y="-8">Error</name>
+			<label kind="invariant" x="-314" y="17">exec'==0&amp;&amp;time[tid]'==0</label>
+		</location>
+		<location id="id3" x="-136" y="255">
+			<name x="-178" y="204">Finish</name>
+			<label kind="invariant" x="-119" y="221">time[tid]&lt;=period[tid]
+&amp;&amp;exec'==0</label>
+		</location>
+		<location id="id4" x="-136" y="68">
+			<name x="-119" y="68">Run</name>
+			<label kind="invariant" x="-119" y="85">exec&lt;=acec&amp;&amp;exec'==fre</label>
+		</location>
+		<location id="id5" x="-136" y="-68">
+			<name x="-127" y="-59">Ready</name>
+			<label kind="invariant" x="-127" y="-42">exec'==0&amp;&amp;time[tid]&lt;=period[tid]</label>
+		</location>
+		<location id="id6" x="-136" y="-187">
+			<name x="-146" y="-221">Initial</name>
+			<label kind="exponentialrate" x="-119" y="-195">1000</label>
+		</location>
+		<init ref="id6"/>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-102" y="42">preempt[tid]?</label>
+			<nail x="0" y="68"/>
+			<nail x="0" y="-68"/>
+		</transition>
+		<transition>
+			<source ref="id5"/>
+			<target ref="id4"/>
+			<label kind="synchronisation" x="-136" y="-17">run[tid]?</label>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id2"/>
+			<label kind="guard" x="-306" y="59">time[tid]&gt;period[tid]</label>
+			<label kind="assignment" x="-254" y="34">error=true</label>
+		</transition>
+		<transition>
+			<source ref="id5"/>
+			<target ref="id2"/>
+			<label kind="guard" x="-289" y="-51">time[tid]&gt;=period[tid]</label>
+			<label kind="assignment" x="-254" y="-34">error=true</label>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id5"/>
+			<label kind="guard" x="-331" y="161">time[tid]==period[tid]</label>
+			<label kind="synchronisation" x="-331" y="187">release[tid]!</label>
+			<label kind="assignment" x="-399" y="212">time[tid]=0,exec=0,
+acec=(random(0.5)+0.5)*wcec[tid]</label>
+			<nail x="-340" y="255"/>
+			<nail x="-340" y="-68"/>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id3"/>
+			<label kind="guard" x="-136" y="136">exec==acec&amp;&amp;time[tid]&lt;=period[tid]</label>
+			<label kind="synchronisation" x="-136" y="153">finish[tid]!</label>
+			<label kind="assignment" x="-136" y="170">lastEc[tid]=acec</label>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-127" y="-161">release[tid]!</label>
+			<label kind="assignment" x="-127" y="-136">time[tid]=0,
+acec=(random(0.5)+0.5)*wcec[tid]</label>
+		</transition>
+	</template>
+	<template>
+		<name>ccEDF</name>
+		<declaration>int [-1,N] oldid=-1;
+int [-1,N] runid=-1;
+t_id tid;
+double Luti;
+double oldfre;
+int [-1,N] getTid(int [0,MAXQUESIZE-1] index){
+    return queue[index];
+}
+void Initial(){
+    for(i:int [0,MAXQUESIZE-1]) queue[i]=-1;
+    Luti=Uti;
+}
+void pop(){
+    for(i:int [0,MAXQUESIZE-2]) queue[i]=queue[i+1];
+    queue[MAXQUESIZE-1]=-1;
+}
+void reset(){
+    oldid=runid=-1;
+}
+
+void ccEDFR(t_id tid){
+    int [0,MAXQUESIZE] pos=0;
+    oldid=queue[0];
+    while(queue[pos]!=-1&amp;&amp;(time[tid]-period[tid]&lt;=time[queue[pos]]-period[queue[pos]])){ assert(pos&lt;MAXQUESIZE);pos++;}
+    insert(tid,pos);
+    runid=queue[0];
+    Luti=Luti-(lastEc[tid]-wcec[tid])/(period[tid]);
+    if(Luti&gt;fee) fre=Luti;
+    else fre=fee;
+}
+void ccEDFF(t_id tid){
+    Luti=Luti-(wcec[tid]-lastEc[tid])/(period[tid]);
+    if(Luti&gt;fee) fre=Luti;
+    else fre=fee;
+    }</declaration>
+		<location id="id7" x="-799" y="-969">
+			<committed/>
+		</location>
+		<location id="id8" x="-1411" y="-1071">
+			<committed/>
+		</location>
+		<location id="id9" x="-561" y="-1071">
+			<name x="-552" y="-1062">Inserted</name>
+			<committed/>
+		</location>
+		<location id="id10" x="-1173" y="-1071">
+			<name x="-1198" y="-1054">Idle</name>
+		</location>
+		<location id="id11" x="-1173" y="-1173">
+			<name x="-1181" y="-1207">Init</name>
+			<urgent/>
+		</location>
+		<location id="id12" x="-1173" y="-969">
+			<committed/>
+		</location>
+		<init ref="id11"/>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-1122" y="-1232">tranfault?</label>
+			<label kind="assignment" x="-1122" y="-1215">trerror=true</label>
+			<nail x="-1122" y="-1258"/>
+			<nail x="-1054" y="-1224"/>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id10"/>
+			<label kind="guard" x="-1164" y="-1037">fabs(oldfre-fre)&gt;=0.0001</label>
+			<label kind="synchronisation" x="-1130" y="-1020">updatefre!</label>
+			<nail x="-1088" y="-986"/>
+			<nail x="-1088" y="-1054"/>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id10"/>
+			<label kind="guard" x="-1283" y="-1011">fabs(oldfre-fre)&lt;0.0001</label>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<label kind="guard" x="-952" y="-1207">oldid!=-1&amp;&amp;runid==oldid</label>
+			<label kind="assignment" x="-901" y="-1190">reset()</label>
+			<nail x="-561" y="-1173"/>
+			<nail x="-1071" y="-1173"/>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id12"/>
+			<label kind="synchronisation" x="-986" y="-1003">run[runid]!</label>
+			<label kind="assignment" x="-969" y="-986">reset()</label>
+			<nail x="-1071" y="-969"/>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id7"/>
+			<label kind="guard" x="-705" y="-1011">oldid!=-1&amp;&amp;runid==tid</label>
+			<label kind="synchronisation" x="-697" y="-986">preempt[oldid]!</label>
+			<nail x="-561" y="-969"/>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id7"/>
+			<label kind="guard" x="-722" y="-1037">oldid==-1</label>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id10"/>
+			<label kind="guard" x="-1326" y="-1181">runid==-1</label>
+			<label kind="assignment" x="-1317" y="-1164">reset()</label>
+			<nail x="-1411" y="-1173"/>
+			<nail x="-1224" y="-1173"/>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id12"/>
+			<label kind="guard" x="-1351" y="-1020">runid!=-1</label>
+			<label kind="synchronisation" x="-1351" y="-1003">run[runid]!</label>
+			<label kind="assignment" x="-1343" y="-986">reset()</label>
+			<nail x="-1411" y="-969"/>
+			<nail x="-1224" y="-969"/>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id8"/>
+			<label kind="select" x="-1317" y="-1105">t:t_id</label>
+			<label kind="synchronisation" x="-1326" y="-1088">finish[t]?</label>
+			<label kind="assignment" x="-1368" y="-1071">pop(),runid=queue[0],
+oldfre=fre,ccEDFF(t)</label>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id9"/>
+			<label kind="select" x="-977" y="-1105">t:t_id</label>
+			<label kind="synchronisation" x="-994" y="-1088">release[t]?</label>
+			<label kind="assignment" x="-1028" y="-1054">tid=t,oldfre=fre,ccEDFR(t)</label>
+		</transition>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id10"/>
+			<label kind="assignment" x="-1190" y="-1156">Initial()</label>
+		</transition>
+	</template>
+	<template>
+		<name>Processor</name>
+		<declaration>hybrid clock Energy;
+clock delay;
+clock t;
+const double la=10e-6;
+const int d=2;
+double Fexp(double fre){
+    double lambda=la*pow(10.0,d*(1-fre)/(1-fee));
+    return -ln(random(1.0))/lambda;
+}</declaration>
+		<location id="id13" x="-306" y="-170">
+			<name x="-316" y="-204">Idle</name>
+			<label kind="invariant" x="-357" y="-136">Energy'==Pind&amp;&amp;delay'==0</label>
+			<label kind="exponentialrate" x="-314" y="-161">1000</label>
+		</location>
+		<location id="id14" x="-306" y="0">
+			<name x="-316" y="-34">Run</name>
+			<label kind="invariant" x="-289" y="25">Energy'==Pind+Cef*fre*fre*fre
+&amp;&amp;t&lt;=delay&amp;&amp;delay'==0</label>
+			<label kind="exponentialrate" x="-289" y="8">1000</label>
+		</location>
+		<init ref="id13"/>
+		<transition>
+			<source ref="id14"/>
+			<target ref="id14"/>
+			<label kind="guard" x="-458" y="0">t==delay</label>
+			<label kind="synchronisation" x="-458" y="17">tranfault!</label>
+			<label kind="assignment" x="-458" y="34">delay=Fexp(fre),t=0</label>
+			<nail x="-476" y="68"/>
+			<nail x="-306" y="68"/>
+		</transition>
+		<transition>
+			<source ref="id14"/>
+			<target ref="id14"/>
+			<label kind="synchronisation" x="-527" y="-51">updatefre?</label>
+			<label kind="assignment" x="-527" y="-25">delay=Fexp(fre),t=0</label>
+			<nail x="-314" y="-8"/>
+			<nail x="-476" y="-68"/>
+			<nail x="-476" y="0"/>
+		</transition>
+		<transition>
+			<source ref="id14"/>
+			<target ref="id13"/>
+			<label kind="guard" x="-204" y="-110">empty()</label>
+			<label kind="synchronisation" x="-195" y="-93">urg!</label>
+			<label kind="assignment" x="-221" y="-76">delay=0,t=0</label>
+			<nail x="-204" y="0"/>
+			<nail x="-204" y="-170"/>
+		</transition>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id14"/>
+			<label kind="guard" x="-306" y="-119">!empty()</label>
+			<label kind="synchronisation" x="-306" y="-102">urg!</label>
+			<label kind="assignment" x="-357" y="-93">delay=Fexp(fre),t=0</label>
+		</transition>
+	</template>
+	<system>// Place template instantiations here.
+///int N=4;
+////taskg = taskGen(4,0.9);
+///stdedfSch=staEDF();
+// List one or more processes to be composed into a system.
+system Task,ccEDF,taskGen,Processor;</system>
+	<queries>
+		<query>
+			<formula>simulate 1 [&lt;=10000]{fre,Processor.Run,Processor.Idle+5,Processor.delay}</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>Pr[&lt;=10000](&lt;&gt;trerror)</formula>
+			<comment></comment>
+		</query>
+	</queries>
+</nta>
